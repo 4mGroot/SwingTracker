@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Button, PermissionsAndroid, Platform } from 'react-native';
 import { BleManager } from 'react-native-ble-plx';
+import { Buffer } from 'buffer'; // ใช้ Buffer สำหรับ decode ค่า
 
 const SERVICE_UUID = "180D";  // UUID ของ BLE Service
 const CHARACTERISTIC_UUID = "2A57"; // UUID ของ Characteristic
@@ -30,23 +31,6 @@ const App = () => {
       } catch (err) {
         console.log('Error requesting permissions', err);
       }
-    }
-  };
-
-  // ตรวจสอบอุปกรณ์ที่จับคู่แล้ว
-  const checkPairedDevices = async () => {
-    try {
-      const devices = await bleManager.devices([]);
-      const pairedDevice = devices.find(d => d.name === "SwingTracker");
-      
-      if (pairedDevice) {
-        setConnectionStatus("พบอุปกรณ์ที่จับคู่แล้ว กำลังเชื่อมต่อ...");
-        connectToDevice(pairedDevice);
-      } else {
-        scanAndConnect();
-      }
-    } catch (error) {
-      console.log("Error checking paired devices:", error);
     }
   };
 
@@ -84,7 +68,7 @@ const App = () => {
       });
   };
 
-  // รับค่าการแกว่งแขนแบบ real-time
+  // รับค่าการแกว่งแขนแบบ real-time และแก้ปัญหา NaN
   const subscribeToSwingData = (device) => {
     device.monitorCharacteristicForService(SERVICE_UUID, CHARACTERISTIC_UUID, (error, characteristic) => {
       if (error) {
@@ -92,9 +76,20 @@ const App = () => {
         return;
       }
       if (characteristic?.value) {
-        const decodedValue = parseInt(atob(characteristic.value), 10);
-        console.log("Decoded Value: ", decodedValue);
-        setSwingCount(decodedValue);
+        try {
+          const rawValue = characteristic.value;
+          const decodedBytes = Buffer.from(rawValue, 'base64'); // แปลง Base64 เป็น Buffer
+          const decodedValue = decodedBytes.readUInt8(0); // อ่านค่าเป็นตัวเลข 8-bit
+
+          console.log("Raw BLE Value: ", rawValue);
+          console.log("Decoded Numeric Value: ", decodedValue);
+
+          if (!isNaN(decodedValue)) {
+            setSwingCount(decodedValue);
+          }
+        } catch (error) {
+          console.log("Error decoding BLE value:", error);
+        }
       }
     });
   };
@@ -104,7 +99,7 @@ const App = () => {
       <Text style={{ fontSize: 24, fontWeight: 'bold' }}>Swing Counter</Text>
       <Text style={{ fontSize: 40, marginVertical: 20 }}>{swingCount}</Text>
       <Text>{connectionStatus}</Text>
-      <Button title="เชื่อมต่อ BLE" onPress={checkPairedDevices} />
+      <Button title="เชื่อมต่อ BLE" onPress={scanAndConnect} />
     </View>
   );
 };
