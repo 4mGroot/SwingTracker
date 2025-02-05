@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Button, PermissionsAndroid, Platform } from 'react-native';
+import { View, Text, Button, PermissionsAndroid, Platform, StyleSheet } from 'react-native';
+import Video from 'react-native-video';
 import { BleManager } from 'react-native-ble-plx';
 import { Buffer } from 'buffer';
 
@@ -39,7 +40,7 @@ const App = () => {
     let scanTimeout = setTimeout(() => {
       bleManager.stopDeviceScan();
       setConnectionStatus('ไม่พบอุปกรณ์ SwingTracker');
-    }, 10000); // หยุดสแกนถ้าเกิน 10 วินาที
+    }, 10000);
 
     bleManager.startDeviceScan(null, null, (error, device) => {
       if (error) {
@@ -47,8 +48,8 @@ const App = () => {
         setConnectionStatus('การค้นหาอุปกรณ์ล้มเหลว');
         return;
       }
-      if (device?.name?.includes("SwingTracker")) { // ✅ เช็ค name ไม่เป็น null
-        clearTimeout(scanTimeout); // หยุด Timeout
+      if (device?.name?.includes("SwingTracker")) {
+        clearTimeout(scanTimeout);
         bleManager.stopDeviceScan();
         connectToDevice(device);
       }
@@ -115,20 +116,62 @@ const App = () => {
   };
 
   return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <Text style={{ fontSize: 24, fontWeight: 'bold' }}>Swing Counter</Text>
+    <View style={styles.container}>
+      {/* วิดีโอพื้นหลัง */}
+      <Video
+        source={require('./videoforapp/Swing.mp4')} // 🔹 ใส่ path ของไฟล์วิดีโอที่ใช้
+        style={styles.backgroundVideo}
+        muted
+        repeat
+        resizeMode="cover"
+      />
 
-      {!isConnected ? (
-        <Button title="เชื่อมต่อ BLE" onPress={scanAndConnect} />
-      ) : (
-        <>
-          <Text style={{ fontSize: 40, marginVertical: 20 }}>{swingCount}</Text>
-          <Text>{connectionStatus}</Text>
-          <Button title="ยกเลิกการเชื่อมต่อ" onPress={disconnectFromDevice} />
-        </>
-      )}
+      {/* UI ของแอป */}
+      <View style={styles.overlay}>
+        <Text style={styles.title}>Swing Counter</Text>
+        {!isConnected ? (
+          <Button title="เชื่อมต่อ BLE" onPress={scanAndConnect} />
+        ) : (
+          <>
+            <Text style={styles.count}>{swingCount}</Text>
+            <Text>{connectionStatus}</Text>
+            <Button title="ยกเลิกการเชื่อมต่อ" onPress={disconnectFromDevice} />
+          </>
+        )}
+      </View>
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backgroundVideo: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    right: 0,
+    width: '100%',
+    height: '100%',
+  },
+  overlay: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff', // 🔹 เปลี่ยนสีเป็นขาวให้อ่านง่ายขึ้น
+  },
+  count: {
+    fontSize: 40,
+    marginVertical: 20,
+    color: '#fff',
+  },
+});
 
 export default App;
